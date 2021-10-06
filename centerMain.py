@@ -4,7 +4,6 @@ from torchvision import transforms
 from datasets import UnbalancedMNIST, BalancedBatchSampler
 from networks import EmbeddingNet, ClassificationNet,ResNetEmbeddingNet
 from skinDatasetFolder import skinDatasetFolder
-from covidDataSetFolder import CovidDataset
 from losses import OnlineTripletLoss,OnlineContrastiveLoss,OnlineCenterLoss
 from utils import AllTripletSelector,HardestNegativeTripletSelector, RandomNegativeTripletSelector, SemihardNegativeTripletSelector # Strategies for selecting triplets within a minibatch
 from utils import BatchHardTripletSelector,AllPositivePairSelector, HardNegativePairSelector # Strategies for selecting pairs within a minibatch
@@ -30,7 +29,7 @@ import csv
 
 Name_dict = {
     'MNIST' : ['0','1','2','3','4','5','6','7','8','9'],
-    'skin' : ['MEL', 'NV', 'BCC', 'AKIEC', 'BKL', 'DF', 'VASC'],
+    'skin7' : ['MEL', 'NV', 'BCC', 'AKIEC', 'BKL', 'DF', 'VASC'],
     'Retina' : ['0','1','2','3','4'],
     'Xray14': ['Atelectasis','Cardiomegaly','Consolidation','Edema','Effusion','Emphysema','Fibrosis','Hernia','Infiltration','Mass',
     'No_Finding','Nodule','Pleural_Thickening','Pneumonia','Pneumothorax'],
@@ -72,7 +71,7 @@ parser.add_argument('--EmbeddingMode',default=False,type = str2bool ,
 					help='True for tripletsLoss(embedding) / False for EntropyLoss(classfication)')
 parser.add_argument('--dim',default=128,type=int,
 					help='The dimension of embedding(type int)')
-parser.add_argument('--n_classes',default=3,type=int,
+parser.add_argument('--n_classes',default=7,type=int,
 					help='The number of classes (type int)')
 parser.add_argument('--margin',default=0.5,type=float,
 					help='Margin used in triplet loss (type float)')
@@ -132,6 +131,7 @@ def calc_centers(dataloader,model,n_classes):
 	#print(centers,centers.size(),centers.requires_grad)
 	return centers
 
+######记得检测这里用的是什么距离#############
 def CenterPredict(embeddings,centers):
     C = centers.size()[0]
     n = embeddings.size()[0]
@@ -152,8 +152,8 @@ def GetMetric(y_true,y_pred):
 if __name__ == '__main__':
 	torch.cuda.set_device(args.cuda_device)
 	dataset_name = args.dataset_name
-	train_dataset = CovidDataset(iterNo=args.iterNo,train=True)
-	test_dataset = CovidDataset(iterNo=args.iterNo,train=False)
+	train_dataset = skinDatasetFolder(train=True, iterNo=args.iterNo, data_dir='/data/Public/Datasets/Skin7')
+	test_dataset = skinDatasetFolder(train=False, iterNo=args.iterNo, data_dir='/data/Public/Datasets/Skin7')
 
 	
 	cuda = torch.cuda.is_available()

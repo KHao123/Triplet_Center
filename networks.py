@@ -7,7 +7,7 @@ class ResNetEmbeddingNet(nn.Module):
     def __init__(self,dataset_name,dimension):
         super(ResNetEmbeddingNet,self).__init__()
         self.resnet50 = torchvision.models.resnet50(pretrained=True)
-        self.resnet50.conv1 = nn.Conv2d(1,64,kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        # self.resnet50.conv1 = nn.Conv2d(3,64,kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         self.resnet50.fc = nn.Linear(2048,dimension,bias=True) ##Arch-Net 3
         self.dataset_name = dataset_name
 
@@ -91,6 +91,22 @@ class ClassificationNet(nn.Module):
     def get_embedding(self, x):
         return self.nonlinear(self.embedding_net(x))
 
+class ClassificationNet_freeze(nn.Module):
+    def __init__(self, embedding_net, dimension,n_classes):
+        super(ClassificationNet_freeze, self).__init__()
+        self.embedding_net = embedding_net
+        self.n_classes = n_classes
+        self.nonlinear = nn.ReLU()
+        self.fc1 = nn.Linear(dimension, n_classes)#####num_of_dims
+
+    def forward(self, x):
+        output = self.embedding_net(x).detach()
+        output = self.nonlinear(output)
+        scores = F.log_softmax(self.fc1(output), dim=-1)
+        return scores
+
+    def get_embedding(self, x):
+        return self.nonlinear(self.embedding_net(x))
 
 class SiameseNet(nn.Module):
     def __init__(self, embedding_net):

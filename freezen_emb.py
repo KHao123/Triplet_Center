@@ -54,7 +54,7 @@ parser.add_argument('--EmbeddingMode',default=False,type = str2bool ,
 					help='True for tripletsLoss(embedding) / False for EntropyLoss(classfication)')
 parser.add_argument('--dim',default=128,type=int,
 					help='The dimension of embedding(type int)')
-parser.add_argument('--n_classes',default=3,type=int,
+parser.add_argument('--n_classes',default=7,type=int,
 					help='The number of classes (type int)')
 parser.add_argument('--margin',default=0.5,type=float,
 					help='Margin used in triplet loss (type float)')
@@ -66,9 +66,9 @@ parser.add_argument('--n_epoch',default=200,type=int,
 					help='End_epoch (int)')
 parser.add_argument('--batch_size',default=16,type=int,
 					help='Batch size (int)')
-parser.add_argument('--n_sample_classes',default=3,type=int,
+parser.add_argument('--n_sample_classes',default=20,type=int,
 				help='For a batch sampler to work comine #samples_per_class')
-parser.add_argument('--n_samples_per_class',default=10,type=int,
+parser.add_argument('--n_samples_per_class',default=5,type=int,
 				help='For a batch sampler to work comine #n_sample_classes')
 parser.add_argument('--TripletSelector',default='SemihardNegativeTripletSelector',
 					help='Triplet selector chosen in ({},{},{},{},{})'
@@ -79,7 +79,14 @@ parser.add_argument('--TripletSelector',default='SemihardNegativeTripletSelector
 						'BatchHardTripletSelector'))
 args = parser.parse_args()
 
+def getFileName(path):
 
+    f_list = os.listdir(path)
+    file_list = []
+    for i in f_list:
+        if os.path.splitext(i)[1] == '.pth':
+            file_list.append(os.path.splitext(i)[0])
+    return file_list
 
 def extract_embeddings(dataloader, model, dimension):
     with torch.no_grad():
@@ -105,11 +112,23 @@ if __name__ == '__main__':
 	dataset_name = args.dataset_name
 	
 	Attr_Dict = {
+	# 'covid19':{'in_channel':1,
+	# 		'n_classes':3,
+	# 		'train_dataset' : CovidDataset(iterNo=args.iterNo,train=True),
+	# 		'test_dataset' : CovidDataset(iterNo=args.iterNo,train=False),
+	# 		'resDir':'./covid19Res/iterNo{}'.format(args.iterNo)
+	# 		},
+	# 'sd198':{'in_channel':3,
+	# 		'n_classes':198,
+	# 		'train_dataset' : SD198(train=True, transform=None, iter_no=args.iterNo, data_dir='/data/Public/Datasets/SD198'),
+	# 		'test_dataset' : SD198(train=False, transform=None, iter_no=args.iterNo, data_dir='/data/Public/Datasets/SD198'),
+	# 		'resDir':'./SD198Res/iterNo{}'.format(args.iterNo)
+	# 		},
 	'skin7':{'in_channel':3,
 			'n_classes':7,
 			'train_dataset' : skinDatasetFolder(train=True, iterNo=args.iterNo, data_dir='/data/Public/Datasets/Skin7'),
 			'test_dataset' : skinDatasetFolder(train=False, iterNo=args.iterNo, data_dir='/data/Public/Datasets/Skin7'),
-			'resDir':'./skin7Res/iterNo{}'.format(args.iterNo)
+			'resDir':'./skinRes/iterNo{}'.format(args.iterNo)
 			}	
 	}
 
@@ -150,6 +169,7 @@ if __name__ == '__main__':
 	embedding_net = ResNetEmbeddingNet(dataset_name,num_of_dim)
 	classification_net = ClassificationNet(embedding_net, dimension = num_of_dim ,n_classes = n_classes)
 	
+
 	if args.EmbeddingMode:
 		loader1 = online_train_loader
 		loader2 = online_test_loader
@@ -169,29 +189,43 @@ if __name__ == '__main__':
 		logName = os.path.join(Attr_Dict[dataset_name]['resDir'],logName)
 		EmbeddingArgs = (num_of_dim,train_loader,test_loader)
 
-	else:
-		loader1 = train_loader
-		loader2 = test_loader
-		model = classification_net
-		loss_fn = torch.nn.CrossEntropyLoss()
-		lr = 1e-4
-		# optimizer = optim.Adam(model.parameters(), lr=lr)
-		optimizer = optim.Adam(
-                    model.parameters(),
-                    lr=lr,
-                    betas=(0.9, 0.99),
-                    eps=1e-8,
-                    amsgrad=True)
-		scheduler = lr_scheduler.StepLR(optimizer, 100, gamma=0.1, last_epoch=-1)
-		metrics = [AccumulatedAccuracyMetric()]
-		logName = '{}d-CE-no_class_weights'.format(num_of_dim)
-		logName = os.path.join(Attr_Dict[dataset_name]['resDir'],logName)
-		EmbeddingArgs = ()
+    else:
 
 
 
+        loader1 = train_loader
+        loader2 = test_loader
+        logName = 'margin{}_{}d-embedding_{}'.format(margin,num_of_dim,args.TripletSelector)
+        logName = os.path.join(Attr_Dict[dataset_name]['resDir'],logName)
+        logfile = os.path.join(logdir,logName)
+        file_list = getFileName(logfile)
+        best = max(file_list)
+        best_pth = best + '.pth'
+        # file = os.path.join(logfile, best_pth)
+        # print('>>>>>>>>>>>>>>>>>>>>load path{}<<<<<<<<<<<<<<<<<<<<<<<<'.format(best_pth))
+        # checkpoint = torch.load(file)
+        # embedding_net.load_state_dict(checkpoint)
+        # classification_net = ClassificationNet_freeze(embedding_net, dimension = num_of_dim ,n_classes = n_classes)
 
+		# model = classification_net
+		# # weight = np.loadtxt('198_weight/train_{}_weight.txt'.format(args.iterNo))
+		# # weight = torch.from_numpy(weight).view(-1).float()
+		# # loss_fn = torch.nn.CrossEntropyLoss(weight.cuda()) 
+        # loss_fn = torch.nn.CrossEntropyLoss()
 
+		# lr = 1e-4
+		# # optimizer = optim.Adam(model.parameters(), lr=lr)
+		# optimizer = optim.Adam(
+        #             model.parameters(),
+        #             lr=lr,
+        #             betas=(0.9, 0.99),
+        #             eps=1e-8,
+        #             amsgrad=True)
+		# scheduler = lr_scheduler.StepLR(optimizer, 100, gamma=0.1, last_epoch=-1)
+		# metrics = [AccumulatedAccuracyMetric()]
+		# logName = 'triplet_loss_freezen'
+		# logName = os.path.join(Attr_Dict[dataset_name]['resDir'],logName)
+		# EmbeddingArgs = ()
 	if cuda:
 		model.cuda()
 
@@ -210,5 +244,3 @@ if __name__ == '__main__':
 		metrics,
 		start_epoch,
 		*EmbeddingArgs)
-
-

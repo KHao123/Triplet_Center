@@ -2,7 +2,7 @@ import numpy as np
 from torchvision.datasets import MNIST
 from torchvision import transforms
 from datasets import UnbalancedMNIST, BalancedBatchSampler
-from networks import EmbeddingNet, ClassificationNet,ResNetEmbeddingNet
+from networks import EmbeddingNet, ClassificationNet,ResNetEmbeddingNet,ClassificationNet_freeze
 from metrics import AccumulatedAccuracyMetric,AverageNonzeroTripletsMetric
 from skinDatasetFolder import skinDatasetFolder
 from losses import OnlineTripletLoss,OnlineContrastiveLoss
@@ -95,16 +95,23 @@ def extract_embeddings(dataloader, model, dimension):
             k += len(images)
     return embeddings, labels
 
+def getFileName(path):
+
+    f_list = os.listdir(path)
+    file_list = []
+    for i in f_list:
+        if os.path.splitext(i)[1] == '.pth':
+            file_list.append(os.path.splitext(i)[0])
+    return file_list
 
 if __name__ == '__main__':
-	print(args)
+    print(args)
+    torch.cuda.set_device(args.cuda_device)
+    logdir = args.logdir
 
-	torch.cuda.set_device(args.cuda_device)
-	logdir = args.logdir
+    dataset_name = args.dataset_name
 
-	dataset_name = args.dataset_name
-	
-	Attr_Dict = {
+    Attr_Dict = {
 	# 'covid19':{'in_channel':1,
 	# 		'n_classes':3,
 	# 		'train_dataset' : CovidDataset(iterNo=args.iterNo,train=True),
@@ -125,33 +132,33 @@ if __name__ == '__main__':
 			}	
 	}
 
-	num_of_dim = args.dim
-	n_classes = Attr_Dict[dataset_name]['n_classes']	
-	train_dataset = Attr_Dict[dataset_name]['train_dataset']
-	test_dataset = Attr_Dict[dataset_name]['test_dataset']
-	
-	n_sample_classes = args.n_sample_classes
-	n_samples_per_class = args.n_samples_per_class
-	train_batch_sampler = BalancedBatchSampler(train_dataset, n_classes=n_sample_classes, n_samples=n_samples_per_class)
-	test_batch_sampler = BalancedBatchSampler(test_dataset,  n_classes=n_sample_classes, n_samples=n_samples_per_class)
+    num_of_dim = args.dim
+    n_classes = Attr_Dict[dataset_name]['n_classes']	
+    train_dataset = Attr_Dict[dataset_name]['train_dataset']
+    test_dataset = Attr_Dict[dataset_name]['test_dataset']
 
-	cuda = torch.cuda.is_available()
+    n_sample_classes = args.n_sample_classes
+    n_samples_per_class = args.n_samples_per_class
+    train_batch_sampler = BalancedBatchSampler(train_dataset, n_classes=n_sample_classes, n_samples=n_samples_per_class)
+    test_batch_sampler = BalancedBatchSampler(test_dataset,  n_classes=n_sample_classes, n_samples=n_samples_per_class)
 
-	kwargs = {'num_workers': 40, 'pin_memory': True} if cuda else {}
-	batch_size = args.batch_size
-	train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, **kwargs)
-	test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False, **kwargs)
+    cuda = torch.cuda.is_available()
 
-	online_train_loader = torch.utils.data.DataLoader(train_dataset, batch_sampler=train_batch_sampler, **kwargs)
-	online_test_loader = torch.utils.data.DataLoader(test_dataset, batch_sampler=test_batch_sampler, **kwargs)
+    kwargs = {'num_workers': 40, 'pin_memory': True} if cuda else {}
+    batch_size = args.batch_size
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, **kwargs)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False, **kwargs)
+
+    online_train_loader = torch.utils.data.DataLoader(train_dataset, batch_sampler=train_batch_sampler, **kwargs)
+    online_test_loader = torch.utils.data.DataLoader(test_dataset, batch_sampler=test_batch_sampler, **kwargs)
 
 
-	start_epoch = args.start_epoch
-	n_epochs = args.n_epoch
-	log_interval = 50
-	margin = args.margin
+    start_epoch = args.start_epoch
+    n_epochs = args.n_epoch
+    log_interval = 50
+    margin = args.margin
 
-	Selector = {
+    Selector = {
 		'AllTripletSelector':AllTripletSelector(),
 		'HardestNegativeTripletSelector':HardestNegativeTripletSelector(margin),
 		'RandomNegativeTripletSelector':RandomNegativeTripletSelector(margin),
@@ -159,55 +166,76 @@ if __name__ == '__main__':
 		'BatchHardTripletSelector':BatchHardTripletSelector(margin)
 	}
 
-	embedding_net = ResNetEmbeddingNet(dataset_name,num_of_dim)
-	classification_net = ClassificationNet(embedding_net, dimension = num_of_dim ,n_classes = n_classes)
-	
+    # file_list = getFileName()
 
-	if args.EmbeddingMode:
-		loader1 = online_train_loader
-		loader2 = online_test_loader
-		model = embedding_net
-		loss_fn = OnlineTripletLoss(margin, Selector[args.TripletSelector])
-		lr = 1e-4
+    embedding_net = ResNetEmbeddingNet(dataset_name,num_of_dim)
+    # checkpoint = torch.load()
+    if args.EmbeddingMode:
+        loader1 = online_train_loader
+        loader2 = online_test_loader
+        model = embedding_net
+        loss_fn = OnlineTripletLoss(margin, Selector[args.TripletSelector])
+        lr = 1e-4
 		# optimizer = optim.Adam(model.parameters(), lr=lr)
-		optimizer = optim.Adam(
+        optimizer = optim.Adam(
                     model.parameters(),
                     lr=lr,
                     betas=(0.9, 0.99),
                     eps=1e-8,
                     amsgrad=True)
-		scheduler = lr_scheduler.StepLR(optimizer, 50, gamma=0.1, last_epoch=-1)
-		metrics = [AverageNonzeroTripletsMetric()]
-		logName = 'margin{}_{}d-embedding_{}'.format(margin,num_of_dim,args.TripletSelector)
-		logName = os.path.join(Attr_Dict[dataset_name]['resDir'],logName)
-		EmbeddingArgs = (num_of_dim,train_loader,test_loader)
+        scheduler = lr_scheduler.StepLR(optimizer, 50, gamma=0.1, last_epoch=-1)
+        metrics = [AverageNonzeroTripletsMetric()]
+        logName = 'margin{}_{}d-embedding_{}'.format(margin,num_of_dim,args.TripletSelector)
+        logName = os.path.join(Attr_Dict[dataset_name]['resDir'],logName)
+        EmbeddingArgs = (num_of_dim,train_loader,test_loader)
 
-	else:
-		loader1 = train_loader
-		loader2 = test_loader
-		model = classification_net
-		weight = np.loadtxt('198_weight/train_{}_weight.txt'.format(args.iterNo))
-		weight = torch.from_numpy(weight).view(-1).float()
-		loss_fn = torch.nn.CrossEntropyLoss(weight.cuda()) 
-		lr = 1e-4
+    else:
+        loader1 = train_loader
+        loader2 = test_loader
+        logName = 'margin{}_{}d-embedding_{}'.format(margin,num_of_dim,args.TripletSelector)
+        # logName = 'CenterlossV2_margin{}_{}d'.format(margin,num_of_dim)
+        logName = os.path.join(Attr_Dict[dataset_name]['resDir'],logName)
+        logfile = os.path.join(logdir,logName)
+        logfile = os.path.join('./run', logfile)
+        print(logfile)
+        file_list = getFileName(logfile)
+        print(file_list)
+        best = max(file_list)
+        best_pth = best + '.pth'
+        file = os.path.join(logfile, best_pth)
+        print('>>>>>>>>>>>>>>>>>>>>load path {}<<<<<<<<<<<<<<<<<<<<<<<<'.format(best_pth))
+        checkpoint = torch.load(file)
+        embedding_net.load_state_dict(checkpoint)
+        classification_net = ClassificationNet_freeze(embedding_net, dimension = num_of_dim ,n_classes = n_classes)
+        # classification_net = ClassificationNet(embedding_net, dimension = num_of_dim ,n_classes = n_classes)
+
+        model = classification_net
+		# weight = np.loadtxt('198_weight/train_{}_weight.txt'.format(args.iterNo))
+		# weight = torch.from_numpy(weight).view(-1).float()
+		# loss_fn = torch.nn.CrossEntropyLoss(weight.cuda()) 
+        loss_fn = torch.nn.CrossEntropyLoss()
+
+        lr = 1e-4
 		# optimizer = optim.Adam(model.parameters(), lr=lr)
-		optimizer = optim.Adam(
+        optimizer = optim.Adam(
                     model.parameters(),
                     lr=lr,
                     betas=(0.9, 0.99),
                     eps=1e-8,
                     amsgrad=True)
-		scheduler = lr_scheduler.StepLR(optimizer, 100, gamma=0.1, last_epoch=-1)
-		metrics = [AccumulatedAccuracyMetric()]
-		logName = '{}d-WCE'.format(num_of_dim)
-		logName = os.path.join(Attr_Dict[dataset_name]['resDir'],logName)
-		EmbeddingArgs = ()
+        scheduler = lr_scheduler.StepLR(optimizer, 100, gamma=0.1, last_epoch=-1)
+        metrics = [AccumulatedAccuracyMetric()]
+        # logName = 'ramdom_CE_freezen'
+        # logName = 'triplet_center_loss_freezen'
+        logName = 'triplet_loss_freezen'
+        logName = os.path.join(Attr_Dict[dataset_name]['resDir'],logName)
+        EmbeddingArgs = ()
 
-	if cuda:
-		model.cuda()
+    if cuda:
+        model.cuda()
 
-	logfile = os.path.join(logdir,logName)
-	fit(dataset_name,
+    logfile = os.path.join(logdir,logName)
+    fit(dataset_name,
 		logfile,
 		loader1,
 		loader2,
@@ -221,3 +249,7 @@ if __name__ == '__main__':
 		metrics,
 		start_epoch,
 		*EmbeddingArgs)
+	
+	
+
+	

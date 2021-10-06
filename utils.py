@@ -146,16 +146,18 @@ class BatchHardTripletSelector(TripletSelector):
 
         for anchor,label in enumerate(labels):
             label_mask = np.where(labels==label)[0]
-            negative_indices = np.where(labels!=label)[0]
-            positive_indices = label_mask[label_mask!=anchor]
+            #以 anchor为anchor
+            negative_indices = np.where(labels!=label)[0] #所有negative
+            positive_indices = label_mask[label_mask!=anchor] #所有positive
             
             ap_distances = distance_matrix[torch.LongTensor(np.array([anchor])),torch.LongTensor(positive_indices)]
             an_distances = distance_matrix[torch.LongTensor(np.array([anchor])),torch.LongTensor(negative_indices)]
           
             ap_distances = ap_distances.data.cpu().numpy()
             an_distances = an_distances.data.cpu().numpy()
-
-            nidx = np.argmin(an_distances)
+            
+            #选择最优的triplet
+            nidx = np.argmin(an_distances) 
             pidx = np.argmax(ap_distances)
             
             positive = positive_indices[pidx]
@@ -167,7 +169,7 @@ class BatchHardTripletSelector(TripletSelector):
             triplets.append([anchor,positive,negative])
 
         triplets = np.array(triplets)
-
+        #返回len(labels)个triples
         return torch.LongTensor(triplets)
 
 
@@ -210,7 +212,7 @@ class FunctionNegativeTripletSelector(TripletSelector):
             for anchor_positive, ap_distance in zip(anchor_positives, ap_distances):
                 loss_values = ap_distance - distance_matrix[torch.LongTensor(np.array([anchor_positive[0]])), torch.LongTensor(negative_indices)] + self.margin
                 loss_values = loss_values.data.cpu().numpy()
-                hard_negative = self.negative_selection_fn(loss_values)
+                hard_negative = self.negative_selection_fn(loss_values) #返回一个negative
                 if hard_negative is not None:
                     hard_negative = negative_indices[hard_negative]
                     triplets.append([anchor_positive[0], anchor_positive[1], hard_negative])

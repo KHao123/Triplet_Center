@@ -7,25 +7,24 @@ from PIL import Image
 
 
 def make_dataset(iterNo, data_dir):
-    train_csv = 'split_data/split_data_{}_fold_train.csv'.format(iterNo)
+    train_csv = 'split_data/origin_split_data/split_data_{}_fold_train.csv'.format(iterNo)
     fn = os.path.join(data_dir, train_csv)
     print('Loading train from {}'.format(fn))
 
-    csvfile = pd.read_csv(fn, index_col=0)
+    csvfile = pd.read_csv(fn)
     raw_train_data = csvfile.values
-
     train_data = []
     for x, y in raw_train_data:
         train_data.append((x, y))
 
 
-    test_csv = 'split_data/split_data_{}_fold_test.csv'.format(iterNo)
+    test_csv = 'split_data/origin_split_data/split_data_{}_fold_test.csv'.format(iterNo)
     fn = os.path.join(data_dir, test_csv)
     print('Loading test from {}'.format(fn))
 
-    csvfile = pd.read_csv(fn, index_col=0)
+    csvfile = pd.read_csv(fn)
     raw_test_data = csvfile.values
-
+ 
     test_data = []
     for x, y in raw_test_data:
         test_data.append((x, y))
@@ -34,6 +33,9 @@ def make_dataset(iterNo, data_dir):
 
 
 class skinDatasetFolder(data.Dataset):
+    '''
+    原图大小（3， 450， 600）
+    '''
     def __init__(self, train=True, iterNo=1, data_dir='../data'):
         
         self.train_data, self.test_data = make_dataset(iterNo,data_dir)
@@ -57,6 +59,7 @@ class skinDatasetFolder(data.Dataset):
            transforms.RandomCrop(img_size),
            transforms.ToTensor(),
            normalized
+        #由于没有mean 和 std文件，这里先去掉normalized
         ])
         transform_test = transforms.Compose([
             transforms.Resize(resize_img),
@@ -122,7 +125,27 @@ def default_loader(path):
         return pil_loader(path)
 
 def get_mean_std(iterNo):
-    filename = '../data/split_data/mean_std_shuffle.csv'
+    filename = './mean_std.csv'
     csvfile = pd.read_csv(filename).values[int(iterNo)-1]
     print(csvfile)
     return csvfile[0:3], csvfile[3:]
+
+if __name__ == '__main__':
+    '''
+    计算每类数据量
+    num_dict = ['MEL', 'NV', 'BCC', 'AKIEC', 'BKL', 'DF', 'VASC']
+    train_data, test_data = make_dataset(1,"/data/Public/Datasets/Skin7")
+    target = [tup[1] for tup in train_data] 
+    # print(test_data)
+    # print(len(train_data) ,len(test_data))
+    target.extend([tup[1] for tup in test_data])
+    class_count = [target.count(i) for i in range(len(num_dict))]
+    print(sum(class_count), len(target))
+    if sum(class_count) == len(target):
+        class_dict = {num_dict[i]:class_count[i] for i in range(len(num_dict))}
+        print(class_dict) 
+        
+        #{'MEL':1113, 'NV':6705, 'BCC':514, 'AKIEC':327, 'BKL':1099, 'DF':115, 'VASC':142}
+        
+    '''
+    get_mean_std(1)

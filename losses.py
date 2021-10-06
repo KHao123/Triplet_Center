@@ -102,7 +102,6 @@ class OnlineContrastiveLoss(nn.Module):
         loss = torch.cat([positive_loss, negative_loss], dim=0)
         return loss.mean()
 
-
 class OnlineCenterLoss(nn.Module):
     def __init__(self,lambd):
         super(OnlineCenterLoss,self).__init__()
@@ -120,6 +119,7 @@ class OnlineCenterLoss(nn.Module):
         
         losses = F.relu(ap_distances - an_distances + self.lambd)
         return losses.mean()
+
 
 class OnlineCenterLossV2(nn.Module):
     def __init__(self,lambd):

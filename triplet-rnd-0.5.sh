@@ -1,0 +1,5 @@
+# python main.py --dataset_name skin7 --iterNo 1 --cuda_device 4 --EmbeddingMode t --dim 128 --n_epoch 200 --n_sample_classes 7 --n_samples_per_class 10 --TripletSelector RandomNegativeTripletSelector --margin 0.5 --batch_size 16
+# python main.py --dataset_name skin7 --iterNo 2 --cuda_device 4 --EmbeddingMode t --dim 128 --n_epoch 200 --n_sample_classes 7 --n_samples_per_class 10 --TripletSelector RandomNegativeTripletSelector --margin 0.5 --batch_size 16
+# python main.py --dataset_name skin7 --iterNo 3 --cuda_device 4 --EmbeddingMode t --dim 128 --n_epoch 200 --n_sample_classes 7 --n_samples_per_class 10 --TripletSelector RandomNegativeTripletSelector --margin 0.5 --batch_size 16
+python main.py --dataset_name skin7 --iterNo 4 --cuda_device 4 --EmbeddingMode t --dim 128 --n_epoch 200 --n_sample_classes 7 --n_samples_per_class 10 --TripletSelector RandomNegativeTripletSelector --margin 0.5 --batch_size 16
+python main.py --dataset_name skin7 --iterNo 5 --cuda_device 4 --EmbeddingMode t --dim 128 --n_epoch 200 --n_sample_classes 7 --n_samples_per_class 10 --TripletSelector RandomNegativeTripletSelector --margin 0.5 --batch_size 16
